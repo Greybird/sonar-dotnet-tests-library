@@ -27,7 +27,7 @@ import java.util.Set;
 
 public class Coverage {
 
-  private final Table<String, Integer, Integer> hitsByLineAndFile = HashBasedTable.create();
+  protected final Table<String, Integer, Integer> hitsByLineAndFile = HashBasedTable.create();
 
   public void addHits(String file, int line, int hits) {
     Integer oldHits = hitsByLineAndFile.get(file, line);

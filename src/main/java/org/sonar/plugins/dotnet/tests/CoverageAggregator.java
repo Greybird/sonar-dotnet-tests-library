@@ -37,7 +37,9 @@ public class CoverageAggregator implements BatchExtension {
 
   public CoverageAggregator(CoverageConfiguration coverageConf, Settings settings) {
     this(coverageConf, settings,
-      new NCover3ReportParser(), new OpenCoverReportParser(), new DotCoverReportsAggregator(new DotCoverReportParser()), new VisualStudioCoverageXmlReportParser());
+      new NCover3ReportParser(),
+      new OpenCoverReportParser(),
+      new DotCoverReportsAggregator(new DotCoverReportParser()), new VisualStudioCoverageXmlReportParser());
   }
 
   @VisibleForTesting
@@ -76,23 +78,19 @@ public class CoverageAggregator implements BatchExtension {
   }
 
   public Coverage aggregate(WildcardPatternFileProvider wildcardPatternFileProvider, Coverage coverage) {
-    if (hasNCover3ReportPaths()) {
-      aggregate(wildcardPatternFileProvider, settings.getString(coverageConf.ncover3PropertyKey()), ncover3ReportParser, coverage);
-    }
-
-    if (hasOpenCoverReportPaths()) {
-      aggregate(wildcardPatternFileProvider, settings.getString(coverageConf.openCoverPropertyKey()), openCoverReportParser, coverage);
-    }
-
-    if (hasDotCoverReportPaths()) {
-      aggregate(wildcardPatternFileProvider, settings.getString(coverageConf.dotCoverPropertyKey()), dotCoverReportsAggregator, coverage);
-    }
-
-    if (hasVisualStudioCoverageXmlReportPaths()) {
-      aggregate(wildcardPatternFileProvider, settings.getString(coverageConf.visualStudioCoverageXmlPropertyKey()), visualStudioCoverageXmlReportParser, coverage);
-    }
-
+    aggregateIfNeeded(wildcardPatternFileProvider, coverage, coverageConf.ncover3PropertyKey(), ncover3ReportParser);
+    aggregateIfNeeded(wildcardPatternFileProvider, coverage, coverageConf.openCoverPropertyKey(), openCoverReportParser);
+    aggregateIfNeeded(wildcardPatternFileProvider, coverage, coverageConf.dotCoverPropertyKey(), dotCoverReportsAggregator);
+    aggregateIfNeeded(wildcardPatternFileProvider, coverage, coverageConf.visualStudioCoverageXmlPropertyKey(), visualStudioCoverageXmlReportParser);
     return coverage;
+  }
+
+  private void aggregateIfNeeded(WildcardPatternFileProvider wildcardPatternFileProvider, Coverage coverage, String toolKey, CoverageParser parser) {
+    if (settings.hasKey(toolKey)) {
+      boolean useCache = settings.getBoolean(toolKey + ".useCache");
+      CoverageParser realParser = useCache ? new CoverageParserCache(parser) : parser;
+      aggregate(wildcardPatternFileProvider, settings.getString(toolKey), realParser, coverage);
+    }
   }
 
   private static void aggregate(WildcardPatternFileProvider wildcardPatternFileProvider, String reportPaths, CoverageParser parser, Coverage coverage) {
