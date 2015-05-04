@@ -21,10 +21,12 @@ package org.sonar.plugins.dotnet.tests;
 
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
+
 import org.junit.Test;
 import org.mockito.ArgumentCaptor;
 import org.mockito.Mockito;
 import org.sonar.api.batch.SensorContext;
+import org.sonar.api.config.Settings;
 import org.sonar.api.batch.fs.FileSystem;
 import org.sonar.api.batch.fs.InputFile;
 import org.sonar.api.batch.fs.internal.DefaultFileSystem;
@@ -43,62 +45,90 @@ import static org.mockito.Mockito.when;
 
 public class CoverageReportImportSensorTest {
 
-  @Test
-  public void should_execute_on_project() {
-    CoverageConfiguration coverageConf = new CoverageConfiguration("", "", "", "", "");
-    Project project = mock(Project.class);
+    @Test
+    public void should_execute_on_project() {
+        Settings settings = mock(Settings.class);
+        CoverageConfiguration coverageConf = new CoverageConfiguration("", "", "", "", "", "");
+        Project project = mock(Project.class);
 
-    CoverageAggregator coverageAggregator = mock(CoverageAggregator.class);
+        CoverageAggregator coverageAggregator = mock(CoverageAggregator.class);
 
-    when(coverageAggregator.hasCoverageProperty()).thenReturn(true);
-    assertThat(new CoverageReportImportSensor(coverageConf, coverageAggregator, mock(FileSystem.class)).shouldExecuteOnProject(project)).isTrue();
+        when(coverageAggregator.hasCoverageProperty()).thenReturn(true);
+        assertThat(new CoverageReportImportSensor(settings, coverageConf, mock(FileSystem.class), coverageAggregator).shouldExecuteOnProject(project)).isTrue();
 
-    when(coverageAggregator.hasCoverageProperty()).thenReturn(false);
-    assertThat(new CoverageReportImportSensor(coverageConf, coverageAggregator, mock(FileSystem.class)).shouldExecuteOnProject(project)).isFalse();
-  }
+        when(coverageAggregator.hasCoverageProperty()).thenReturn(false);
+        assertThat(new CoverageReportImportSensor(settings, coverageConf, mock(FileSystem.class), coverageAggregator).shouldExecuteOnProject(project)).isFalse();
+    }
 
-  @Test
-  public void analyze() {
-    Coverage coverage = mock(Coverage.class);
-    when(coverage.files()).thenReturn(ImmutableSet.of("Foo.cs", "Bar.cs", "Baz.java"));
-    when(coverage.hits("Foo.cs")).thenReturn(ImmutableMap.<Integer, Integer>builder()
-      .put(24, 1)
-      .put(42, 0)
-      .build());
-    when(coverage.hits("Bar.cs")).thenReturn(ImmutableMap.<Integer, Integer>builder()
-      .put(42, 1)
-      .build());
-    when(coverage.hits("Baz.java")).thenReturn(ImmutableMap.<Integer, Integer>builder()
-      .put(42, 1)
-      .build());
+    @Test
+    public void analyze() {
+        Settings settings = mock(Settings.class);
 
-    CoverageAggregator coverageAggregator = mock(CoverageAggregator.class);
+        Coverage coverage = mock(Coverage.class);
+        when(coverage.files()).thenReturn(ImmutableSet.of("Foo.cs", "Bar.cs", "Baz.java"));
+        when(coverage.hits("Foo.cs")).thenReturn(ImmutableMap.<Integer, Integer>builder()
+                .put(24, 1)
+                .put(42, 0)
+                .build());
+        when(coverage.hits("Bar.cs")).thenReturn(ImmutableMap.<Integer, Integer>builder()
+                .put(42, 1)
+                .build());
+        when(coverage.hits("Baz.java")).thenReturn(ImmutableMap.<Integer, Integer>builder()
+                .put(42, 1)
+                .build());
 
-    SensorContext context = mock(SensorContext.class);
+        CoverageAggregator coverageAggregator = mock(CoverageAggregator.class);
 
-    DefaultFileSystem fs = new DefaultFileSystem();
-    InputFile inputFile = new DefaultInputFile("Foo.cs").setAbsolutePath("Foo.cs").setLanguage("cs");
-    fs.add(inputFile);
-    fs.add(new DefaultInputFile("Baz.java").setAbsolutePath("Baz.java").setLanguage("java"));
+        SensorContext context = mock(SensorContext.class);
 
-    CoverageConfiguration coverageConf = new CoverageConfiguration("cs", "", "", "", "");
+        DefaultFileSystem fs = new DefaultFileSystem();
+        InputFile inputFile = new DefaultInputFile("Foo.cs").setAbsolutePath("Foo.cs").setLanguage("cs");
+        fs.add(inputFile);
+        fs.add(new DefaultInputFile("Baz.java").setAbsolutePath("Baz.java").setLanguage("java"));
 
-    new CoverageReportImportSensor(coverageConf, coverageAggregator, fs).analyze(context, coverage);
+        CoverageConfiguration coverageConf = new CoverageConfiguration("cs", "", "", "", "", "");
 
-    verify(coverageAggregator).aggregate(Mockito.any(WildcardPatternFileProvider.class), Mockito.eq(coverage));
-    verify(context, Mockito.times(3)).saveMeasure(Mockito.any(InputFile.class), Mockito.any(Measure.class));
+        new CoverageReportImportSensor(settings, coverageConf, fs, coverageAggregator).analyze(context, coverage);
 
-    ArgumentCaptor<Measure> captor = ArgumentCaptor.forClass(Measure.class);
-    verify(context, Mockito.times(3)).saveMeasure(Mockito.eq(inputFile), captor.capture());
+        verify(coverageAggregator).aggregate(Mockito.any(WildcardPatternFileProvider.class), Mockito.eq(coverage));
+        verify(context, Mockito.times(3)).saveMeasure(Mockito.any(InputFile.class), Mockito.any(Measure.class));
 
-    List<Measure> values = captor.getAllValues();
-    checkMeasure(values.get(0), CoreMetrics.LINES_TO_COVER, 2.0);
-    checkMeasure(values.get(1), CoreMetrics.UNCOVERED_LINES, 1.0);
-  }
+        ArgumentCaptor<Measure> captor = ArgumentCaptor.forClass(Measure.class);
+        verify(context, Mockito.times(3)).saveMeasure(Mockito.eq(inputFile), captor.capture());
 
-  private static void checkMeasure(Measure measure, Metric metric, Double value) {
-    assertThat(measure.getMetric()).isEqualTo(metric);
-    assertThat(measure.getValue()).isEqualTo(value);
-  }
+        List<Measure> values = captor.getAllValues();
+        checkMeasure(values.get(0), CoreMetrics.LINES_TO_COVER, 2.0);
+        checkMeasure(values.get(1), CoreMetrics.UNCOVERED_LINES, 1.0);
+    }
+
+    @Test
+    public void analyseWithCache() {
+        Settings settings = mock(Settings.class);
+        when(settings.getBoolean("globalCache")).thenReturn(true);
+
+        Project project = mock(Project.class);
+
+        Coverage coverage = mock(Coverage.class);
+
+        CoverageAggregator coverageAggregator = mock(CoverageAggregator.class);
+        SensorContext context = mock(SensorContext.class);
+        DefaultFileSystem fs = new DefaultFileSystem();
+        InputFile inputFile = new DefaultInputFile("Foo.cs").setAbsolutePath("Foo.cs").setLanguage("cs");
+        fs.add(inputFile);
+        fs.add(new DefaultInputFile("Foo.cs").setAbsolutePath("Foo.cs").setLanguage("cs"));
+
+        CoverageConfiguration coverageConf = new CoverageConfiguration("cs", "globalCache", "", "", "", "");
+        CoverageReportImportSensor.clearCache();
+        CoverageReportImportSensor sensor = new CoverageReportImportSensor(settings, coverageConf, fs, coverageAggregator);
+        sensor.analyze(context, coverage);
+        sensor = new CoverageReportImportSensor(settings, coverageConf, fs, coverageAggregator);
+        sensor.analyze(context,coverage);
+        verify(coverageAggregator).aggregate(Mockito.any(WildcardPatternFileProvider.class), Mockito.any(Coverage.class));
+    }
+
+    private static void checkMeasure(Measure measure, Metric metric, Double value) {
+        assertThat(measure.getMetric()).isEqualTo(metric);
+        assertThat(measure.getValue()).isEqualTo(value);
+    }
 
 }

@@ -50,7 +50,7 @@ public class CoverageAggregatorTest {
   public void hasCoverageProperty() {
     Settings settings = mock(Settings.class);
 
-    CoverageConfiguration coverageConf = new CoverageConfiguration("", "ncover", "opencover", "dotcover", "visualstudio");
+    CoverageConfiguration coverageConf = new CoverageConfiguration("", "", "ncover", "opencover", "dotcover", "visualstudio");
 
     when(settings.hasKey("ncover")).thenReturn(false);
     when(settings.hasKey("opencover")).thenReturn(false);
@@ -82,7 +82,7 @@ public class CoverageAggregatorTest {
     when(settings.hasKey("visualstudio")).thenReturn(true);
     assertThat(new CoverageAggregator(coverageConf, settings).hasCoverageProperty()).isTrue();
 
-    coverageConf = new CoverageConfiguration("", "ncover2", "opencover2", "dotcover2", "visualstudio2");
+    coverageConf = new CoverageConfiguration("", "", "ncover2", "opencover2", "dotcover2", "visualstudio2");
     when(settings.hasKey("ncover")).thenReturn(true);
     when(settings.hasKey("opencover")).thenReturn(true);
     when(settings.hasKey("dotcover")).thenReturn(true);
@@ -94,7 +94,7 @@ public class CoverageAggregatorTest {
   public void aggregate() {
     WildcardPatternFileProvider wildcardPatternFileProvider = mock(WildcardPatternFileProvider.class);
 
-    CoverageConfiguration coverageConf = new CoverageConfiguration("", "ncover", "opencover", "dotcover", "visualstudio");
+    CoverageConfiguration coverageConf = new CoverageConfiguration("", "", "ncover", "opencover", "dotcover", "visualstudio");
     Settings settings = mock(Settings.class);
 
     when(settings.hasKey("ncover")).thenReturn(true);
@@ -211,7 +211,7 @@ public class CoverageAggregatorTest {
     CoverageParserCache.clear();
     WildcardPatternFileProvider wildcardPatternFileProvider = mock(WildcardPatternFileProvider.class);
 
-    CoverageConfiguration coverageConf = new CoverageConfiguration("", "ncover", "opencover", "dotcover", "visualstudio");
+    CoverageConfiguration coverageConf = new CoverageConfiguration("", "", "ncover", "opencover", "dotcover", "visualstudio");
     Settings settings = mock(Settings.class);
 
     when(settings.hasKey("ncover")).thenReturn(true);
@@ -304,7 +304,7 @@ public class CoverageAggregatorTest {
     CoverageParserCache.clear();
     WildcardPatternFileProvider wildcardPatternFileProvider = mock(WildcardPatternFileProvider.class);
 
-    CoverageConfiguration coverageConf = new CoverageConfiguration("", "ncover", "opencover", "dotcover", "visualstudio");
+    CoverageConfiguration coverageConf = new CoverageConfiguration("", "", "ncover", "opencover", "dotcover", "visualstudio");
     Settings settings = mock(Settings.class);
 
     when(settings.hasKey("ncover")).thenReturn(false);
