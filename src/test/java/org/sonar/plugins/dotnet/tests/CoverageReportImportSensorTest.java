@@ -21,10 +21,12 @@ package org.sonar.plugins.dotnet.tests;
 
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
+
 import org.junit.Test;
 import org.mockito.ArgumentCaptor;
 import org.mockito.Mockito;
 import org.sonar.api.batch.SensorContext;
+import org.sonar.api.config.Settings;
 import org.sonar.api.measures.CoreMetrics;
 import org.sonar.api.measures.Measure;
 import org.sonar.api.measures.Metric;
@@ -43,20 +45,23 @@ public class CoverageReportImportSensorTest {
 
   @Test
   public void should_execute_on_project() {
+    Settings settings = mock(Settings.class);
     CoverageConfiguration coverageConf = new CoverageConfiguration("", "", "", "", "");
     Project project = mock(Project.class);
 
     CoverageAggregator coverageAggregator = mock(CoverageAggregator.class);
 
     when(coverageAggregator.hasCoverageProperty()).thenReturn(true);
-    assertThat(new CoverageReportImportSensor(coverageConf, coverageAggregator).shouldExecuteOnProject(project)).isTrue();
+    assertThat(new CoverageReportImportSensor(settings, coverageConf, coverageAggregator).shouldExecuteOnProject(project)).isTrue();
 
     when(coverageAggregator.hasCoverageProperty()).thenReturn(false);
-    assertThat(new CoverageReportImportSensor(coverageConf, coverageAggregator).shouldExecuteOnProject(project)).isFalse();
+    assertThat(new CoverageReportImportSensor(settings, coverageConf, coverageAggregator).shouldExecuteOnProject(project)).isFalse();
   }
 
   @Test
   public void analyze() {
+    Settings settings = mock(Settings.class);
+
     Coverage coverage = mock(Coverage.class);
     when(coverage.files()).thenReturn(ImmutableSet.of("Foo.cs", "Bar.cs", "Baz.java"));
     when(coverage.hits("Foo.cs")).thenReturn(ImmutableMap.<Integer, Integer>builder()
@@ -85,7 +90,7 @@ public class CoverageReportImportSensorTest {
 
     CoverageConfiguration coverageConf = new CoverageConfiguration("cs", "", "", "", "");
 
-    new CoverageReportImportSensor(coverageConf, coverageAggregator).analyze(context, fileProvider, coverage);
+    new CoverageReportImportSensor(settings, coverageConf, coverageAggregator).analyze(context, fileProvider, coverage);
 
     verify(coverageAggregator).aggregate(Mockito.any(WildcardPatternFileProvider.class), Mockito.eq(coverage));
     verify(context, Mockito.times(3)).saveMeasure(Mockito.any(Resource.class), Mockito.any(Measure.class));
@@ -96,6 +101,29 @@ public class CoverageReportImportSensorTest {
     List<Measure> values = captor.getAllValues();
     checkMeasure(values.get(0), CoreMetrics.LINES_TO_COVER, 2.0);
     checkMeasure(values.get(1), CoreMetrics.UNCOVERED_LINES, 1.0);
+  }
+
+  @Test
+  public void analyseWithCache() {
+	  Settings settings = mock(Settings.class);
+	  when(settings.getBoolean("coverage.useGlobalCache")).thenReturn(true);
+
+	  Project project = mock(Project.class);
+
+	  CoverageAggregator coverageAggregator = mock(CoverageAggregator.class);
+    SensorContext context = mock(SensorContext.class);
+	  FileProvider fileProvider = mock(FileProvider.class);
+
+	  org.sonar.api.resources.File csSonarFile = mockSonarFile("cs");
+	  when(fileProvider.fromPath("Foo.cs")).thenReturn(csSonarFile);
+
+    CoverageConfiguration coverageConf = new CoverageConfiguration("cs", "", "", "", "");
+    CoverageReportImportSensor.clearCache();
+    CoverageReportImportSensor sensor = new CoverageReportImportSensor(settings, coverageConf, coverageAggregator);
+    sensor.analyze(context, fileProvider);
+    sensor = new CoverageReportImportSensor(settings, coverageConf, coverageAggregator);
+    sensor.analyze(context, fileProvider);
+    verify(coverageAggregator).aggregate(Mockito.any(WildcardPatternFileProvider.class), Mockito.any(Coverage.class));
   }
 
   private static void checkMeasure(Measure measure, Metric metric, Double value) {
