@@ -20,10 +20,12 @@
 package org.sonar.plugins.dotnet.tests;
 
 import com.google.common.annotations.VisibleForTesting;
+
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.sonar.api.batch.Sensor;
 import org.sonar.api.batch.SensorContext;
+import org.sonar.api.config.Settings;
 import org.sonar.api.measures.CoverageMeasuresBuilder;
 import org.sonar.api.measures.Measure;
 import org.sonar.api.resources.Project;
@@ -32,16 +34,24 @@ import java.io.File;
 import java.util.Map;
 
 public class CoverageReportImportSensor implements Sensor {
-
   private static final Logger LOG = LoggerFactory.getLogger(CoverageReportImportSensor.class);
+
+  private static Coverage cachedCoverage;
 
   private final WildcardPatternFileProvider wildcardPatternFileProvider = new WildcardPatternFileProvider(new File("."), File.separator);
   private final CoverageConfiguration coverageConf;
   private final CoverageAggregator coverageAggregator;
+  private final Settings settings;
 
-  public CoverageReportImportSensor(CoverageConfiguration coverageConf, CoverageAggregator coverageAggregator) {
+  @VisibleForTesting
+  static void clearCache() {
+    cachedCoverage = null;
+  }
+
+  public CoverageReportImportSensor(Settings settings, CoverageConfiguration coverageConf, CoverageAggregator coverageAggregator) {
     this.coverageConf = coverageConf;
     this.coverageAggregator = coverageAggregator;
+    this.settings = settings;
   }
 
   @Override
@@ -51,12 +61,33 @@ public class CoverageReportImportSensor implements Sensor {
 
   @Override
   public void analyse(Project project, SensorContext context) {
-    analyze(context, new FileProvider(project, context), new Coverage());
+    analyze(context, new FileProvider(project, context));
+  }
+
+  @VisibleForTesting
+  void analyze(SensorContext context, FileProvider fileProvider) {
+    analyze(context, fileProvider, new Coverage());
   }
 
   @VisibleForTesting
   void analyze(SensorContext context, FileProvider fileProvider, Coverage coverage) {
-    coverageAggregator.aggregate(wildcardPatternFileProvider, coverage);
+    Coverage usedCoverage = coverage;
+    boolean aggregate = true;
+    if (settings.getBoolean("coverage.useGlobalCache")) {
+      if (cachedCoverage == null) {
+        cachedCoverage = usedCoverage;
+      } else {
+        aggregate = false;
+      }
+      usedCoverage = cachedCoverage;
+    }
+    analyze(context, fileProvider, usedCoverage, aggregate);
+  }
+
+  private void analyze(SensorContext context, FileProvider fileProvider, Coverage coverage, boolean aggregate) {
+    if (aggregate) {
+      coverageAggregator.aggregate(wildcardPatternFileProvider, coverage);
+    }
     CoverageMeasuresBuilder coverageMeasureBuilder = CoverageMeasuresBuilder.create();
 
     for (String filePath : coverage.files()) {
