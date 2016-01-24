@@ -10,7 +10,7 @@
 
   <groupId>org.sonarsource.sonar-plugins.dotnet.tests</groupId>
   <artifactId>sonar-dotnet-tests-library</artifactId>
-  <version>1.2.1</version>
+  <version>1.2.2-SG</version>
 
   <name>SonarQube .NET Tests Library</name>
   <description />
